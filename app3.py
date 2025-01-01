@@ -175,7 +175,8 @@ def main():
             st.session_state.pending_changes = {}
 
             # Save to file
-            with open('template.html', 'w', encoding='utf-8') as file:
+            output_filename = "modified_template.html"
+            with open(output_filename, 'w', encoding='utf-8') as file:
                 file.write(new_html)
 
             st.success("Changes saved successfully!")
