@@ -16,19 +16,10 @@ def get_download_link(html_content, filename="modified_template.html"):
     return f'<a href="data:text/html;base64,{b64}" download="{filename}">Download Modified Template</a>'
 
 
-def is_contact_info(element):
-    """Check if element contains contact information"""
-    if not element or not element.text.strip():
-        return False
-    text = element.text.strip().lower()
-    return ('email' in text or 'phone' in text or 'contact' in text or
-            text.startswith('📧') or text.startswith('📞'))
-
-
 def find_text_elements(soup):
     """Find all text elements that should be editable"""
     elements = []
-    seen_texts = set()  # To track duplicate text content
+    seen_texts = set()
 
     # Find all text elements
     for element in soup.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'div', 'span']):
@@ -78,6 +69,7 @@ def main():
             st.error("Template file not found. Please ensure 'template.html' exists in the same directory.")
             return
 
+    # Initialize session state variables
     if 'wellness_url' not in st.session_state:
         st.session_state.wellness_url = "file:///C:/Users/Administrator/wellness/template.html"
     if 'signup_url' not in st.session_state:
@@ -101,13 +93,12 @@ def main():
         body_text = st.expander("Edit Text Content", expanded=True)
         contact_info = st.expander("Contact Information", expanded=True)
 
-        # Combine all text editing into one section
+        # Text editing section
         with body_text:
             st.subheader("Edit All Text Content")
             for i, element in enumerate(elements):
                 text_content = element.text.strip()
 
-                # Only show editable box if text length is <= 128 characters
                 if len(text_content) <= 128:
                     key = f"text_{element.name}_{i}_{hash(text_content)}"
                     new_text = st.text_input(
@@ -119,10 +110,11 @@ def main():
                     if new_text != text_content:
                         st.session_state.pending_changes[text_content] = new_text
 
+        # Contact information section
         with contact_info:
             st.subheader("Button Links")
 
-            # Get new URLs from user
+            # URLs for buttons
             new_wellness_url = st.text_input(
                 "Book Wellness Visits Button URL",
                 value=st.session_state.wellness_url,
@@ -155,36 +147,52 @@ def main():
                     if new_url != social_link['href']:
                         st.session_state.pending_changes[social_link['href']] = new_url
 
-        # Save button at the bottom of Edit Content tab
+        # Save button
         if st.button("Save Changes", type="primary"):
-            # Apply all pending changes
             new_html = st.session_state.html_content
-            for old_text, new_text in st.session_state.pending_changes.items():
-                new_html = new_html.replace(old_text, new_text)
 
-                # Update session state URLs if they were changed
+            # Process all pending changes
+            for old_text, new_text in st.session_state.pending_changes.items():
+                if "Annual Wellness Visits:" in old_text:
+                    # Handle first header
+                    old_pattern = '<span>Annual Wellness Visits: <br>A Smart Investment in Workforce Success</span>'
+                    new_pattern = f'<span>{new_text}</span>'
+                    new_html = new_html.replace(old_pattern, new_pattern)
+
+                elif "NYC's $99 Weight Loss Solution:" in old_text:
+                    # Handle second header
+                    old_pattern = '<span>NYC\'s $99 Weight Loss Solution: <br>Corporate Wellness Made Simple</span>'
+                    new_pattern = f'<span>{new_text}</span>'
+                    new_html = new_html.replace(old_pattern, new_pattern)
+
+                else:
+                    # Handle all other text replacements
+                    new_html = new_html.replace(old_text, new_text)
+
+                # Update session state URLs if needed
                 if old_text == st.session_state.wellness_url:
                     st.session_state.wellness_url = new_text
                 elif old_text == st.session_state.signup_url:
                     st.session_state.signup_url = new_text
 
-            # Update the modified HTML
+            # Update modified HTML
             st.session_state.modified_html = new_html
+
+            # Save to file
+            with open("modified_template.html", 'w', encoding='utf-8') as file:
+                file.write(new_html)
 
             # Clear pending changes
             st.session_state.pending_changes = {}
 
-            # Save to file
-            output_filename = "modified_template.html"
-            with open(output_filename, 'w', encoding='utf-8') as file:
-                file.write(new_html)
-
             st.success("Changes saved successfully!")
 
+    # Preview tab
     with tab2:
         st.header("Preview")
         st.components.v1.html(st.session_state.modified_html, height=600, scrolling=True)
 
+    # Export tab
     with tab3:
         st.header("Export Template")
         st.markdown(get_download_link(st.session_state.modified_html), unsafe_allow_html=True)
